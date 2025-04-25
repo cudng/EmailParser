@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 from email import message_from_bytes
 from email.header import decode_header
 from bs4 import BeautifulSoup
@@ -162,7 +162,7 @@ class EmailTrashService:
         self.server = server
         self.trash = trash_folder
 
-    def move_to_trash(self, uids: list[bytes]) -> tuple[bool, str]:
+    def move_to_trash(self, uids: Sequence[bytes]) -> tuple[bool, str]:
         if not uids:
             return False, 'No emails to move.'
 

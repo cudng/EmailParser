@@ -1,11 +1,9 @@
 import flet as ft
 from flet.core.types import MainAxisAlignment
 from imapclient import IMAPClient
-
 from components import AppBar
 from utils import validate
 from services import EmailConnectionService, is_connected
-from imaplib import IMAP4_SSL
 import threading  # Recommended for non-blocking UI during long tasks
 
 
