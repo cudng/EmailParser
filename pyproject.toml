@@ -1,20 +1,20 @@
 [project]
-name = "emailparser"
+name = "Email Parser"
 version = "0.1.0"
-description = ""
+description = "Email Parser App (Built with Flet + IMAPClient)"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    { name = "Flet developer", email = "you@example.com" }
+    { name = "Yevhen Kryvtsov", email = "yevgenphk@gmail.com" }
 ]
 dependencies = [
-  "flet==0.27.6"
+  "flet==0.27.6", "IMAPClient~=3.0.1", "email_validator~=2.2.0", "beautifulsoup4~=4.13.3", "python-dotenv~=1.1.0"
 ]
 
 [tool.flet]
 # org name in reverse domain name notation, e.g. "com.mycompany".
 # Combined with project.name to build bundle ID for iOS and Android apps
-org = "com.mycompany"
+org = "com.Yevhen"
 
 # project display name that is used as an app title on Android and iOS home screens,
 # shown in window titles and about app dialogs on desktop.
@@ -24,7 +24,7 @@ product = "emailparser"
 company = "Flet"
 
 # copyright text to display in about app dialogs
-copyright = "Copyright (C) 2025 by Flet"
+copyright = "Copyright (C) 2025 by Yevhen"
 
 [tool.flet.app]
 path = "src"

@@ -154,8 +154,6 @@ class EmailDetailsExtractor:
 
         return ""
 
-# You still need `decode_mime_words` function, define it separately if not already present
-
 
 class EmailTrashService:
     def __init__(self, server: IMAPClient, trash_folder: str = '[Gmail]/Bin'):
@@ -166,11 +164,9 @@ class EmailTrashService:
         if not uids:
             return False, 'No emails to move.'
 
-        # Copy all UIDs at once, then set \Deleted flag
-        self.server.copy(uids, self.trash)                             # batch copy :contentReference[oaicite:6]{index=6}
-        self.server.set_flags(uids, ['\\Deleted'], silent=True)       # batch flag :contentReference[oaicite:7]{index=7}
-        self.server.expunge()                                         # remove deleted :contentReference[oaicite:8]{index=8}
-
+        self.server.copy(uids, self.trash)
+        self.server.set_flags(uids, ['\\Deleted'], silent=True)
+        self.server.expunge()
         return True, f'Moved {len(uids)} message(s) to {self.trash}.'
 
 

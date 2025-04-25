@@ -4,7 +4,7 @@ from imapclient import IMAPClient
 from components import AppBar
 from utils import validate
 from services import EmailConnectionService, is_connected
-import threading  # Recommended for non-blocking UI during long tasks
+import threading
 
 
 class Login(ft.View):
