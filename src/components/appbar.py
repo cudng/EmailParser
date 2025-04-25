@@ -1,4 +1,5 @@
 import flet as ft
+from imapclient import IMAPClient
 
 class AppBar(ft.AppBar):
 
@@ -7,7 +8,7 @@ class AppBar(ft.AppBar):
             title=ft.Text("Email Parser"),
             center_title=True,
             toolbar_height=50,
-            leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/")) if page.route == "/home" else None,
+            leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda e: self.go_back()) if page.route == "/home" else None,
             bgcolor=ft.Colors.BLUE,
             actions=[ft.IconButton(ft.Icons.WB_SUNNY_OUTLINED if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.DARK_MODE,
                                    on_click=lambda e: self.change_theme_mode(e)),
@@ -24,3 +25,15 @@ class AppBar(ft.AppBar):
             self.page.theme_mode = ft.ThemeMode.DARK
 
         self.page.update()
+
+    def go_back(self):
+
+        conn: IMAPClient = self.page.session.get("conn")
+        try:
+            if isinstance(conn, IMAPClient):
+                conn.logout()
+        except Exception as e:
+            print(e)
+
+        finally:
+            self.page.go("/")
