@@ -39,10 +39,17 @@ class EmailConnectionService:
 
 def decode_mime_words(s):
     decoded_parts = decode_header(s)
-    return ''.join([
-        part.decode(charset or 'utf-8') if isinstance(part, bytes) else part
-        for part, charset in decoded_parts
-    ])
+    decoded_string = ''
+    for part, charset in decoded_parts:
+        if isinstance(part, bytes):
+            try:
+                decoded_string += part.decode(charset or 'utf-8', errors='replace')
+            except (LookupError, TypeError):
+                # Fallback if charset is unknown or invalid
+                decoded_string += part.decode('utf-8', errors='replace')
+        else:
+            decoded_string += part
+    return decoded_string
 
 
 @dataclass
@@ -76,9 +83,9 @@ class EmailFilter:
 
 
 class EmailParserService:
-    def __init__(self, server: IMAPClient):
+    def __init__(self, server: IMAPClient, folder: str):
         self.server = server
-        self.server.select_folder('INBOX')  # one‑time folder selection
+        self.server.select_folder(folder)
 
     def search_emails(self, filters: EmailFilter) -> list[bytes]:
         """
@@ -86,7 +93,7 @@ class EmailParserService:
         """
         # filters.to_imap_query might return like ['FROM', 'alice@example.com']
         criteria = filters.to_imap_query()
-        uids = self.server.search(criteria)  # returns UIDs by default :contentReference[oaicite:3]{index=3}
+        uids = self.server.search(criteria)  # returns UIDs by default :contentReference[oaicite:3]{index=3} # noqa
         return uids
 
 
@@ -94,12 +101,12 @@ class EmailDetailsExtractor:
     def __init__(self, server: IMAPClient):
         self.server = server
 
-    def fetch_all_email_details(self, uids: list[int]) -> list[dict]:
+    def fetch_all_email_details(self, uids: list[int]) -> list[dict]: # noqa
         if not uids:
             return []
 
         # 1) Batch‑fetch full RFC822 payloads
-        messages = self.server.fetch(uids, ['RFC822'])  # :contentReference[oaicite:3]{index=3}
+        messages = self.server.fetch(uids, ['RFC822'])  # :contentReference[oaicite:3]{index=3} # noqa
         if not messages:
             return [{"error": "Server returned no messages"}]
 
@@ -109,7 +116,7 @@ class EmailDetailsExtractor:
                 continue  # skip any malformed entries
 
             raw = data[b'RFC822']
-            msg = message_from_bytes(raw)                # :contentReference[oaicite:4]{index=4}
+            msg = message_from_bytes(raw)                # :contentReference[oaicite:4]{index=4} # noqa
 
             subject = decode_mime_words(msg.get('Subject', ''))
             sender  = decode_mime_words(msg.get('From', '')).strip('<>')
@@ -142,14 +149,14 @@ class EmailDetailsExtractor:
                     if html_bytes:
                         html = html_bytes.decode(errors="ignore")
                         soup = BeautifulSoup(html, "html.parser")
-                        text = soup.get_text(separator="\n")
+                        text = soup.get_text(separator="\n") # noqa
                         return re.sub(r'(?i)<!doctype html[^>]*>', '', text).strip()
         else:
             body_bytes = msg.get_payload(decode=True)
             if body_bytes:
                 text = body_bytes.decode(errors="ignore")
                 soup = BeautifulSoup(text, "html.parser")
-                text = soup.get_text(separator="\n")
+                text = soup.get_text(separator="\n") # noqa
                 return re.sub(r'(?i)<!doctype html[^>]*>', '', text).strip()
 
         return ""
@@ -160,7 +167,7 @@ class EmailTrashService:
         self.server = server
         self.trash = trash_folder
 
-    def move_to_trash(self, uids: Sequence[bytes]) -> tuple[bool, str]:
+    def move_to_trash(self, uids: Sequence[bytes]) -> tuple[bool, str]: # noqa
         if not uids:
             return False, 'No emails to move.'
 

@@ -20,27 +20,43 @@ def is_connected(host="8.8.8.8", port=53, timeout=2):
 
 def save_emails_to_csv(file_path: str, data: list[dict[str, str]]):
     with open(file_path, mode="w", newline="", encoding="utf-8") as file:  # type: TextIO
-        writer = csv.DictWriter(file, fieldnames=["from", "subject", "date", "body"])
+        writer = csv.DictWriter(file, fieldnames=["from", "subject", "date", "body"])  # noqa
         writer.writeheader()
         writer.writerows(data)
+
+
+def move_to_trash(conn: IMAPClient, ids: Sequence[bytes])-> tuple[bool, str]:
+    conn = conn
+    email_ids = ids
+    trash_service = EmailTrashService(conn)
+    return trash_service.move_to_trash(email_ids)
+
+
+def get_folders(conn: IMAPClient) -> list[tuple[str, str]]:
+    folders = conn.list_folders()
+    folder_names = []
+    for flags, delimiter, name in folders:
+        if isinstance(name, bytes):
+            name = name.decode()
+        if isinstance(delimiter, bytes):
+            delimiter = delimiter.decode()
+
+        # Skip Gmail system folders
+        if name == '[Gmail]':
+            continue
+        # Handle Gmail-style names like "[Gmail]/Spam"
+        if delimiter in name:
+            clean_name = (name, name.split(delimiter)[-1])
+        else:
+            clean_name = (name, name)
+        folder_names.append(clean_name)
+    return folder_names
 
 
 class EmailSearchError(Exception):
     def __init__(self, message: str):
         super().__init__(message)
         self.message = message
-
-
-class DeleteEmails:
-
-    def __init__(self, conn: IMAPClient, ids: Sequence[bytes]) -> None:
-        self.conn = conn
-        self.email_ids = ids
-        self.trash_service = EmailTrashService(self.conn)
-
-    def move_to_trash(self) -> tuple[bool, str]:
-
-         return self.trash_service.move_to_trash(self.email_ids)
 
 
 class SearchEmails:
@@ -69,7 +85,7 @@ class SearchEmails:
         self.ids = None
 
 
-    def get_email_ids(self):
+    def get_email_ids(self, chosen_folder: str):
         """
                         Retrieves email details based on the filters and the provided connection.
 
@@ -83,7 +99,7 @@ class SearchEmails:
                                  otherwise an error message string.
                         """
         # Instantiate the parser service using the active connection.
-        parser = EmailParserService(server=self.conn)
+        parser = EmailParserService(server=self.conn, folder=chosen_folder)
         # Search for email IDs using the filter criteria
         self.ids = parser.search_emails(self.filters)
         # Check if the search returned a list of email IDs (successful search).

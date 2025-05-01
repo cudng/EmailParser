@@ -1,2 +1,2 @@
 from .imap import EmailConnectionService, EmailParserService, EmailFilter, EmailDetailsExtractor
-from .functionality import SearchEmails, EmailSearchError, is_connected, save_emails_to_csv, DeleteEmails
+from .functionality import SearchEmails, EmailSearchError, is_connected, save_emails_to_csv, move_to_trash, get_folders

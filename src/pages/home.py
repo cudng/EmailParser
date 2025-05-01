@@ -3,8 +3,9 @@ import flet as ft
 from components import AppBar
 from utils import auto_format_and_validate_date_input, on_change
 import threading  # Recommended for non-blocking UI during long tasks
-from services import SearchEmails, EmailSearchError,is_connected, save_emails_to_csv, DeleteEmails
+from services import SearchEmails, EmailSearchError,is_connected, save_emails_to_csv, move_to_trash, get_folders
 from pathlib import Path
+from core import Style
 
 
 class Home(ft.View):
@@ -20,62 +21,65 @@ class Home(ft.View):
         self.emails = []
         self.home_dir = str(Path.home())
 
+
         # GET THE IMAP4_SSL OBJECT FROM SESSION
         self.connection = self.page.session.get("conn")
 
+        self.folders = get_folders(self.connection)
+
         # EMAIL
-        self.email = ft.Text(value=f"{self.page.client_storage.get("email")}", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_ACCENT_700)
-        self.online_indicator = ft.Container(bgcolor=ft.Colors.GREEN_ACCENT_700, width=12, height=12, border_radius=20, offset=ft.Offset(-0.2, 0.1))
+        self.email = ft.Text(**Style.email_textfield(), value=f"{self.page.client_storage.get("email")}")
+        self.online_indicator = ft.Container(**Style.online_indicator())
 
         # SEARCH SECTION
 
+        #folder selection
+        self.folders_label = ft.Text(**Style.label(), value="Please choose folder:")
+        self.choose_folder = ft.Dropdown(
+            **Style.choose_folder(),
+            value=self.folders[1][0],
+            options=[ft.DropdownOption(key=folder[0], text=folder[1]) for folder in self.folders],
+            on_change=lambda e: self.dropdown_changed(e)
+        )
+
         #sender field
-        self.specific_sender_label = ft.Text("Pick a specific sender:", size=18, color=ft.Colors.BLUE_ACCENT, weight=ft.FontWeight.W_700)
-        self.specific_sender = ft.TextField(hint_text="Enter sender", on_change=lambda e: on_change(e))
+        self.sender_label = ft.Text("Pick sender:", **Style.label())
+        self.sender = ft.TextField(hint_text="Enter sender", on_change=lambda e: on_change(e))
 
         #subject_field
-        self.subject_label = ft.Text("Pick a Subject:", size=18, color=ft.Colors.BLUE_ACCENT, weight=ft.FontWeight.W_700)
+        self.subject_label = ft.Text("Pick a Subject:", **Style.label())
         self.subject = ft.TextField(hint_text='Enter Subject(e.g Invoice)', on_change=lambda e: on_change(e))
 
         #since_a_date field
-        self.since_a_date_label = ft.Text("Pick since a date:", size=18, color=ft.Colors.BLUE_ACCENT, weight=ft.FontWeight.W_700)
+        self.since_a_date_label = ft.Text("Pick since a date:", **Style.label())
         self.since_a_date = ft.TextField(
             hint_text="Enter a date (DD-Mon-YYY)",
             on_change=lambda e: auto_format_and_validate_date_input(e)
         )
 
         #before_a_date field
-        self.before_a_date_label = ft.Text(
-            "Pick before a date:",
-            size=18, color=ft.Colors.BLUE_ACCENT,
-            weight=ft.FontWeight.W_700
-        )
+        self.before_a_date_label = ft.Text("Pick before a date:", **Style.label())
         self.before_a_date = ft.TextField(
             hint_text="Enter a date(DD-Mon-YYY)",
             on_change=lambda e: auto_format_and_validate_date_input(e)
         )
 
         #by_word field
-        self.by_word_label = ft.Text(
-            "Search by word:",
-            size=18, color=ft.Colors.BLUE_ACCENT,
-            weight=ft.FontWeight.W_700,
-        )
+        self.by_word_label = ft.Text("Search by word:", **Style.label())
         self.by_word = ft.TextField(hint_text="Enter search word", on_change=lambda e: on_change(e))
 
         #search_button
         self.search_button = ft.FilledButton(
-            "Search", bgcolor=ft.Colors.BLUE,
-            width=200, height=40, icon=ft.Icons.SEARCH_OUTLINED,
-            on_click=lambda e: self.search_emails(e)
+            "Search",
+            on_click=lambda e: self.search_emails(e),
+            **Style.search_button()
         )
 
         # more fields
-        self.more_fields = ft.Text(spans=[ft.TextSpan(
-            text="More filters...",
-            style=ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE),
-            on_click=lambda e: ...
-        )])
+        self.more_fields = ft.TextButton(
+            icon=ft.Icons.ARROW_DROP_DOWN,
+            text="More filters"
+        )
 
         # END OF SEARCH SECTION
 
@@ -91,18 +95,12 @@ class Home(ft.View):
         # RESULTS SECTION
 
         #results label
-        self.results_label = ft.Text("📧 Parsed Email Results", size=25, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_ACCENT)
+        self.results_label = ft.Text(**Style.results_label())
 
-        self.lv = ft.ListView(expand=1,
-                              spacing=10,
-                              padding=20,
-                              divider_thickness=1
-                              )
+        self.lv = ft.ListView(**Style.lv())
 
         self.table_container = ft.Container(
-            height=350,
-            expand=True,
-            expand_loose=True,
+            **Style.table_container(),
             content=self.lv
         )
 
@@ -128,23 +126,16 @@ class Home(ft.View):
 
         # Save button
         self.save_button = ft.FilledButton(
-            text="💾 Save",
-            bgcolor=ft.Colors.GREY,
-            width=200,
-            height=40,
-            disabled=True,
+            **Style.save_button(),
             on_click=lambda e: self.save_to_csv(e)
         )
 
         # Delete button
         self.delete_button = ft.FilledButton(
-            text="🗑️Bin",
-            bgcolor=ft.Colors.GREY,
-            width=200,
-            height=40,
-            disabled=True,
+            **Style.delete_button(),
             on_click=lambda e: self.open_dlg_delete(e)
         )
+
         # Number of Emails Found
         self.emails_found = ft.Text(f"Emails found: {len(self.emails)}")
         # END OF RESULT SECTION
@@ -157,12 +148,13 @@ class Home(ft.View):
             content=ft.Column([
                 ft.Row([self.email, self.online_indicator], alignment=ft.MainAxisAlignment.START),
                 ft.Divider(height=10),
-                ft.Row([self.specific_sender_label, self.specific_sender], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Row([self.folders_label ,self.choose_folder], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Row([self.sender_label, self.sender], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Row([self.subject_label, self.subject], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Row([self.before_a_date_label, self.before_a_date], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Row([self.since_a_date_label, self.since_a_date], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Row([self.by_word_label, self.by_word], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                ft.Row([self.more_fields], alignment=ft.MainAxisAlignment.END),
+                ft.Row([self.more_fields], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Divider(height=10),
                 ft.Row([self.search_button], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Row([self.loading_indicator,], alignment=ft.MainAxisAlignment.CENTER),
@@ -197,16 +189,11 @@ class Home(ft.View):
             return True
 
     def get_filter_values(self):
-        sender = self.specific_sender.value.strip()
+        sender = self.sender.value.strip()
         subject = self.subject.value.strip()
         since = self.since_a_date.value.strip()
         before = self.before_a_date.value.strip()
         text = self.by_word.value.strip()
-
-        # Check if all fields are empty
-        if not any([sender, subject, since, before, text]):
-            self.show_error("Please enter at least one filter value.")
-            return
 
         filter_values = {
             "sender": sender or None,
@@ -217,6 +204,7 @@ class Home(ft.View):
         }
 
         return filter_values
+
 
     def search_emails(self, e) -> None: # noqa
 
@@ -236,58 +224,9 @@ class Home(ft.View):
         def perform_search(filters: dict[str, str], conn: IMAPClient):
             try:
                 search = SearchEmails(filters, conn)
-                self.email_ids = search.get_email_ids()
+                self.email_ids = search.get_email_ids(self.choose_folder.value)
                 self.emails = search.get_email_data()
-                self.lv.controls = [
-                    ft.ResponsiveRow([
-                        ft.Text(
-                                spans=[
-                                    ft.TextSpan(
-                                       "Subject: ",
-                                        style=ft.TextStyle(
-                                            weight=ft.FontWeight.W_500,
-                                            color=ft.Colors.BLUE_ACCENT_700,
-                                        )),
-                                    ft.TextSpan(f"{email["subject"]}",)
-                                ]),
-                        ft.Text(
-                                spans=[
-                                    ft.TextSpan(
-                                        "From: ",
-                                        style=ft.TextStyle(
-                                            weight=ft.FontWeight.W_500,
-                                            color=ft.Colors.BLUE_ACCENT_700,
-                                        )
-                                    ),
-                                    ft.TextSpan(f"{email["from"]}")
-                                ]
-                                ),
-                        ft.Text(
-                                spans=[
-                                    ft.TextSpan(
-                                        "Date: ",
-                                        style=ft.TextStyle(
-                                            weight=ft.FontWeight.W_500,
-                                            color=ft.Colors.BLUE_ACCENT_700,
-                                        )),
-                                    ft.TextSpan(f"{email["date"]}")
-                                ]
-                                ),
-                        ft.Text(
-                                spans=[
-                                    ft.TextSpan(
-                                        "Body: ",
-                                        style=ft.TextStyle(
-                                            weight=ft.FontWeight.W_500,
-                                            color=ft.Colors.BLUE_ACCENT_700,
-                                        )),
-                                    ft.TextSpan(f"{email["body"][:200] + "..."}")
-                                ]
-                                ),
-                    ], alignment=ft.MainAxisAlignment.SPACE_EVENLY
-                    )
-                        for email in self.emails
-                    ]
+                self.lv.controls = self.get_lv_controls()
                 self.save_button.bgcolor = ft.Colors.GREEN_ACCENT_700
                 self.delete_button.bgcolor = ft.Colors.RED_ACCENT_700
                 self.save_button.disabled = False
@@ -314,11 +253,8 @@ class Home(ft.View):
             return
 
         self.file_picker.save_file(
-            dialog_title="Save email results as...",
-            file_type=ft.FilePickerFileType.CUSTOM,
-            allowed_extensions=["csv"],
+            **Style.file_picker(),
             initial_directory=self.home_dir,
-            file_name="email_results.csv"
         )
 
     def file_save_result(self, e) -> None:
@@ -345,8 +281,7 @@ class Home(ft.View):
         self.page.update()
 
         def perform_delete():
-            delete_service = DeleteEmails(conn=self.connection, ids=self.email_ids)
-            result, info = delete_service.move_to_trash()
+            result, info = move_to_trash(conn=self.connection, ids=self.email_ids)
 
             # Clear previous results
             self.lv.controls.clear()
@@ -363,6 +298,55 @@ class Home(ft.View):
 
         threading.Thread(target=perform_delete, daemon=True).start()
 
+
+    def get_lv_controls(self) -> list:
+
+        return [
+                    ft.ResponsiveRow([
+                        ft.Text(
+                                spans=[
+                                    ft.TextSpan(
+                                       "Subject: ",
+                                        **Style.results_text_span()
+                                    ),
+                                    ft.TextSpan(f"{email["subject"]}",)
+                                ]
+                        ),
+                        ft.Text(
+                                spans=[
+                                    ft.TextSpan(
+                                        "From: ",
+                                        **Style.results_text_span()
+                                    ),
+                                    ft.TextSpan(f"{email["from"]}")
+                                ]
+                        ),
+                        ft.Text(
+                                spans=[
+                                    ft.TextSpan(
+                                        "Date: ",
+                                        **Style.results_text_span()
+                                    ),
+                                    ft.TextSpan(f"{email["date"]}")
+                                ]
+                        ),
+                        ft.Text(
+                                spans=[
+                                    ft.TextSpan(
+                                        "Body: ",
+                                        **Style.results_text_span()
+                                    ),
+                                    ft.TextSpan(f"{email["body"][:200] + "..."}")
+                                ]
+                        ),
+                    ], alignment=ft.MainAxisAlignment.SPACE_EVENLY
+                    )
+                        for email in self.emails
+                    ]
+
+    def dropdown_changed(self, e):
+        self.page.client_storage.set("folder", e.control.value)
+        print(e.control.value)
 
     def show_success(self, message) -> None:
         self.snack_bar.content.value = message
