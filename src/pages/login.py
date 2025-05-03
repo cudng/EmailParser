@@ -1,7 +1,7 @@
 import flet as ft
 from imapclient import IMAPClient
 from utils import validate
-from services import EmailConnectionService, is_connected
+from services import EmailConnectionService, is_connected, get_folders
 import threading
 from core import Style
 
@@ -37,7 +37,7 @@ class Login(ft.View):
         )
 
         # CHECK BOX FOR PASSWORD SAVE
-        self.checkbox = ft.Checkbox(**Style.checkbox(page))
+        self.checkbox = ft.Checkbox(**Style.password_checkbox(page))
 
         # ERROR
         self.error = ft.SnackBar(**Style.error_snackbar())
@@ -109,8 +109,10 @@ class Login(ft.View):
             conn = self.get_connection()
 
             if isinstance(conn, IMAPClient):
+                folders = get_folders(conn)
                 self.page.client_storage.set("email", self.email.value)
                 self.page.session.set("conn", conn)
+                self.page.client_storage.set("folders", folders) if not self.page.client_storage.contains_key("folders") else ...
                 self.loading_indicator.visible = False
                 self.save_password()
                 self.page.go("/home")

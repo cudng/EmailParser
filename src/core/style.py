@@ -65,7 +65,7 @@ class Style:
         }
 
     @staticmethod
-    def checkbox(page) -> dict:
+    def password_checkbox(page) -> dict:
         return {
             "label": "Save Your Password",
             "value": True if page.client_storage.contains_key("pass") else False,
@@ -99,7 +99,6 @@ class Style:
             ]
         }
 
-
     # LOGIN PAGE END
 
 
@@ -109,6 +108,14 @@ class Style:
         return {
             "size": 22,
             "weight": ft.FontWeight.BOLD,
+        }
+
+    @staticmethod
+    def group_checkbox() -> dict:
+        return {
+            "label": "Group your emails by Sender",
+            "value": False,
+            "label_position": ft.LabelPosition.LEFT
         }
 
     @staticmethod
@@ -218,6 +225,13 @@ class Style:
     def choose_folder() -> dict:
         return {
             "width": 300,
+        }
+
+    @staticmethod
+    def delete_icon_button() -> dict:
+        return {
+            'icon_color': ft.Colors.RED,
+            'icon': ft.Icons.DELETE
         }
 
     @staticmethod

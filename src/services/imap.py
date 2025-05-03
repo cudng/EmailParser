@@ -98,15 +98,16 @@ class EmailParserService:
 
 
 class EmailDetailsExtractor:
-    def __init__(self, server: IMAPClient):
+    def __init__(self, server: IMAPClient, uids: list[int]):
         self.server = server
+        self.uids = uids
 
-    def fetch_all_email_details(self, uids: list[int]) -> list[dict]: # noqa
-        if not uids:
+    def fetch_all_email_details(self) -> list[dict]: # noqa
+        if not self.uids:
             return []
 
         # 1) Batch‑fetch full RFC822 payloads
-        messages = self.server.fetch(uids, ['RFC822'])  # :contentReference[oaicite:3]{index=3} # noqa
+        messages = self.server.fetch(self.uids, ['RFC822'])  # :contentReference[oaicite:3]{index=3} # noqa
         if not messages:
             return [{"error": "Server returned no messages"}]
 
@@ -127,7 +128,32 @@ class EmailDetailsExtractor:
                 'subject': subject,
                 'from':    sender,
                 'date':    date,
-                'body':    ' '.join(body.split())
+                'body':    ' '.join(body.split()),
+                'uid': uid
+            })
+
+        return details
+
+    def fetch_curtain_email_details(self) -> list[dict]:
+        if not self.uids:
+            return []
+
+        messages = self.server.fetch(self.uids, ['BODY.PEEK[HEADER.FIELDS (FROM)]'])
+        if not messages:
+            return [{"error": "Server returned no messages"}]
+
+        details = []
+        for uid, data in messages.items():
+            header_data = data.get(b'BODY[HEADER.FIELDS (FROM)]')
+            if not header_data:
+                continue
+
+            msg = message_from_bytes(header_data)
+            sender = decode_mime_words(msg.get('From', '')).strip('<>')
+
+            details.append({
+                'from': sender,
+                'uid': uid
             })
 
         return details

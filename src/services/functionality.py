@@ -1,8 +1,11 @@
+import logging
+
 from .imap import EmailFilter, EmailParserService, EmailDetailsExtractor, EmailTrashService
 import socket
 import csv
-from typing import TextIO, Sequence
+from typing import TextIO, Sequence, Any
 from imapclient import IMAPClient
+from collections import defaultdict
 
 
 def is_connected(host="8.8.8.8", port=53, timeout=2):
@@ -52,6 +55,21 @@ def get_folders(conn: IMAPClient) -> list[tuple[str, str]]:
         folder_names.append(clean_name)
     return folder_names
 
+
+def sorted_emails(emails: list[dict] ) -> list[tuple[str, dict[str, Any]]]:
+    # Each sender maps to a list of their email UIDs
+    sender_data = defaultdict(lambda: {"count": 0, "uids": []})
+
+    for email in emails:
+        sender = email["from"]
+        uid = email["uid"]
+        sender_data[sender]["count"] += 1
+        sender_data[sender]["uids"].append(uid)
+
+    # Sort by count
+    sorted_senders = sorted(sender_data.items(), key=lambda x: x[1]["count"], reverse=True)
+
+    return sorted_senders
 
 class EmailSearchError(Exception):
     def __init__(self, message: str):
@@ -108,20 +126,19 @@ class SearchEmails:
 
         return self.ids
 
-    def get_email_data(self) -> list[dict[str, str]] | str:
-        """
-                Retrieves email details based on the Ids provided.
-
+    def get_email_data(self, key: str) -> list[dict[str, str]] | str:
+        """ Retrieves email details based on the Ids provided.
                 It performs the following steps:
                   1. Creates an EmailDetailsExtractor with the ids provided.
                   2. Fetch the data from emails found by ids
-
                 :return: A list of dictionaries (each containing email 'from', 'date', and 'body') if successful,
-                         otherwise an error message string.
-                """
+                         otherwise an error message string."""
 
         # Instantiate the extractor service to fetch the complete details for the email IDs.
-        extractor = EmailDetailsExtractor(self.conn)
-        email_details = extractor.fetch_all_email_details(self.ids)
+        extractor = EmailDetailsExtractor(self.conn, self.ids)
+        email_details: dict = {
+            "ALL": extractor.fetch_all_email_details,
+            "CURTAIN" : extractor.fetch_curtain_email_details
+        }
 
-        return email_details
+        return email_details[key]()
